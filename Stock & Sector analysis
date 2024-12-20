@@ -1,725 +1,434 @@
-{
-  "nbformat": 4,
-  "nbformat_minor": 0,
-  "metadata": {
-    "colab": {
-      "provenance": [],
-      "authorship_tag": "ABX9TyOUZfk152tA4Sv2FGpmc/dn",
-      "include_colab_link": true
-    },
-    "kernelspec": {
-      "name": "python3",
-      "display_name": "Python 3"
-    },
-    "language_info": {
-      "name": "python"
+import pandas as pd
+import yfinance as yf
+import plotly.graph_objects as go
+from datetime import datetime
+
+# Load sectors and their stock tickers from a CSV file
+def load_sector_data(csv_file='sectors.csv'):
+    try:
+        df = pd.read_csv(csv_file)
+        sector_stocks = {}
+        for index, row in df.iterrows():
+            sector_name = row[0]
+            tickers = row[1:].dropna().tolist()  # Get tickers from the row, ignoring NaNs
+            sector_stocks[sector_name] = tickers
+        return sector_stocks
+    except Exception as e:
+        print(f"No sector data from CSV : {e}")
+        return {}
+
+# Function to select timeframe
+def select_timeframe():
+    print("Choose the timeframe for analysis:")
+    print("1. 1 Day (1d)")
+    print("2. 5 Days (5d)")
+    print("3. 1 Month (1mo)")
+    print("4. 3 Months (3mo)")
+    print("5. 6 Months (6mo)")
+    print("6. Year-to-Date (ytd)")
+    print("7. 1 Year (1y)")
+    print("8. 2 Years (2y)")
+    print("9. 5 Years (5y)")
+    print("10. Custom Date Range")
+
+    timeframe_choice = input("Enter your choice: ")
+
+    # Map user choice to Yahoo Finance period strings
+    timeframe_map = {
+        '1': '1d', '2': '5d', '3': '1mo', '4': '3mo', 
+        '5': '6mo', '6': 'ytd', '7': '1y', '8': '2y', '9': '5y'
     }
-  },
-  "cells": [
-    {
-      "cell_type": "markdown",
-      "metadata": {
-        "id": "view-in-github",
-        "colab_type": "text"
-      },
-      "source": [
-        "<a href=\"https://colab.research.google.com/github/Bhattu-Sai-Praneeth/Comprehensive-Stock-Analysis-Sector-and-Individual-Insights/blob/main/Stock%20%26%20Sector%20analysis\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
-      ]
-    },
-    {
-      "cell_type": "markdown",
-      "source": [
-        "**Sector Name,Ticker 1,Ticker 2,Ticker 3,Ticker 4,Ticker 5\n",
-        "Nifty Auto Index,TATAMOTORS.NS,MARUTI.NS,M&M.NS,HEROMOTOCO.NS,EICHERMOT.NS\n",
-        "Nifty FMCG Index,HINDUNILVR.NS,DABUR.NS,ITC.NS,BRITANNIA.NS,NESTLEIND.NS\n",
-        "Nifty IT Index,TCS.NS,INFY.NS,WIPRO.NS,HCLTECH.NS,TECHM.NS\n",
-        "Nifty Bank Index,HDFCBANK.NS,ICICIBANK.NS,AXISBANK.NS,KOTAKBANK.NS,SBIN.NS\n",
-        "Nifty Metal Index,TATASTEEL.NS,JSWSTEEL.NS,HINDALCO.NS,COALINDIA.NS,VEDL.NS\n",
-        "Nifty Pharma Index,SUNPHARMA.NS,CIPLA.NS,DRREDDY.NS,LUPIN.NS,AARTIIND.NS\n",
-        "Nifty Energy Index,RELIANCE.NS,ONGC.NS,BPCL.NS,NTPC.NS,POWERGRID.NS\n",
-        "Nifty Infra Index,LARSEN.NS,DLF.NS,BHEL.NS,ADANIGREEN.NS,JSWENERGY.NS\n",
-        "Nifty Realty Index,DLF.NS,GODREJPROP.NS,OberoiRealty.NS,BRIGADE.NS,MACROTECH.NS\n",
-        "Nifty Media Index,ZEE.NS,SUNTV.NS,TV18BRDCST.NS,PVR.NS,ADLABS.NS\n",
-        "Nifty Consumer Durables Index,TITAN.NS,POLYCAB.NS,BLUESTAR.NS,CROMPTON.NS,VOLTAS.NS\n",
-        "Nifty Services Sector Index,INFOEDGE.NS,IRCTC.NS,RELIANCE.NS,HDFC.LTD,DMART.NS**\n",
-        "\n",
-        "\n"
-      ],
-      "metadata": {
-        "id": "zvAA2xfEuwnu"
-      }
-    },
-    {
-      "cell_type": "code",
-      "execution_count": 19,
-      "metadata": {
-        "colab": {
-          "base_uri": "https://localhost:8080/",
-          "height": 1000
-        },
-        "id": "NISCzU2MhNHX",
-        "outputId": "0c766e81-621f-4f19-b1b2-338293440ee1"
-      },
-      "outputs": [
-        {
-          "output_type": "stream",
-          "name": "stderr",
-          "text": [
-            "<ipython-input-19-004a3515ac00>:12: FutureWarning:\n",
-            "\n",
-            "Series.__getitem__ treating keys as positions is deprecated. In a future version, integer keys will always be treated as labels (consistent with DataFrame behavior). To access a value by position, use `ser.iloc[pos]`\n",
-            "\n"
-          ]
-        },
-        {
-          "output_type": "stream",
-          "name": "stdout",
-          "text": [
-            "Available Sectors:\n",
-            "1. Nifty Auto Index\n",
-            "2. Nifty FMCG Index\n",
-            "3. Nifty IT Index\n",
-            "4. Nifty Bank Index\n",
-            "5. Nifty Metal Index\n",
-            "6. Nifty Pharma Index\n",
-            "7. Nifty Energy Index\n",
-            "8. Nifty Infra Index\n",
-            "9. Nifty Realty Index\n",
-            "10. Nifty Media Index\n",
-            "11. Nifty Consumer Durables Index\n",
-            "12. Nifty Services Sector Index\n",
-            "Select a sector by entering the number: 1\n",
-            "Selected Sector: Nifty Auto Index\n",
-            "Choose the timeframe for analysis:\n",
-            "1. 1 Day (1d)\n",
-            "2. 5 Days (5d)\n",
-            "3. 1 Month (1mo)\n",
-            "4. 3 Months (3mo)\n",
-            "5. 6 Months (6mo)\n",
-            "6. Year-to-Date (ytd)\n",
-            "7. 1 Year (1y)\n",
-            "8. 2 Years (2y)\n",
-            "9. 5 Years (5y)\n",
-            "10. Custom Date Range\n",
-            "Enter your choice: 3\n",
-            "Fetching data for TATAMOTORS.NS...\n",
-            "Fetching data for MARUTI.NS...\n",
-            "Fetching data for M&M.NS...\n",
-            "Fetching data for HEROMOTOCO.NS...\n",
-            "Fetching data for EICHERMOT.NS...\n"
-          ]
-        },
-        {
-          "output_type": "display_data",
-          "data": {
-            "text/html": [
-              "<html>\n",
-              "<head><meta charset=\"utf-8\" /></head>\n",
-              "<body>\n",
-              "    <div>            <script src=\"https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS-MML_SVG\"></script><script type=\"text/javascript\">if (window.MathJax && window.MathJax.Hub && window.MathJax.Hub.Config) {window.MathJax.Hub.Config({SVG: {font: \"STIX-Web\"}});}</script>                <script type=\"text/javascript\">window.PlotlyConfig = {MathJaxConfig: 'local'};</script>\n",
-              "        <script charset=\"utf-8\" src=\"https://cdn.plot.ly/plotly-2.35.2.min.js\"></script>                <div id=\"00856ef4-3b8e-430c-89c6-063729216d16\" class=\"plotly-graph-div\" style=\"height:600px; width:100%;\"></div>            <script type=\"text/javascript\">                                    window.PLOTLYENV=window.PLOTLYENV || {};                                    if (document.getElementById(\"00856ef4-3b8e-430c-89c6-063729216d16\")) {                    Plotly.newPlot(                        \"00856ef4-3b8e-430c-89c6-063729216d16\",                        [{\"close\":[4844.300073242188,4929.569970703125,4945.600073242187,4896.520068359375,4927.169934082031,4845.439953613281,4884.060119628906,4922.980017089843,4929.830029296875,4876.5198974609375,4905.659997558594,4942.880017089844,4913.57001953125,4893.269946289062,4920.260083007813,4877.120043945312,4909.119958496094,4904.830017089844,4817.5099609375,4789.730090332031,4778.589978027344,4763.789978027344],\"high\":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,4831.620805094547,4826.684528975054,4818.613745155008],\"low\":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,4747.839375569515,4730.495427079634,4708.96621089968],\"name\":\"Candlestick\",\"open\":[4844.300073242188,4929.569970703125,4945.600073242187,4896.520068359375,4927.169934082031,4845.439953613281,4884.060119628906,4922.980017089843,4929.830029296875,4876.5198974609375,4905.659997558594,4942.880017089844,4913.57001953125,4893.269946289062,4920.260083007813,4877.120043945312,4909.119958496094,4904.830017089844,4817.5099609375,4789.730090332031,4778.589978027344,4763.789978027344],\"x\":[\"2024-11-21T00:00:00+05:30\",\"2024-11-22T00:00:00+05:30\",\"2024-11-25T00:00:00+05:30\",\"2024-11-26T00:00:00+05:30\",\"2024-11-27T00:00:00+05:30\",\"2024-11-28T00:00:00+05:30\",\"2024-11-29T00:00:00+05:30\",\"2024-12-02T00:00:00+05:30\",\"2024-12-03T00:00:00+05:30\",\"2024-12-04T00:00:00+05:30\",\"2024-12-05T00:00:00+05:30\",\"2024-12-06T00:00:00+05:30\",\"2024-12-09T00:00:00+05:30\",\"2024-12-10T00:00:00+05:30\",\"2024-12-11T00:00:00+05:30\",\"2024-12-12T00:00:00+05:30\",\"2024-12-13T00:00:00+05:30\",\"2024-12-16T00:00:00+05:30\",\"2024-12-17T00:00:00+05:30\",\"2024-12-18T00:00:00+05:30\",\"2024-12-19T00:00:00+05:30\",\"2024-12-20T00:00:00+05:30\"],\"type\":\"candlestick\"},{\"line\":{\"color\":\"blue\",\"width\":1},\"name\":\"Upper Band\",\"x\":[\"2024-11-21T00:00:00+05:30\",\"2024-11-22T00:00:00+05:30\",\"2024-11-25T00:00:00+05:30\",\"2024-11-26T00:00:00+05:30\",\"2024-11-27T00:00:00+05:30\",\"2024-11-28T00:00:00+05:30\",\"2024-11-29T00:00:00+05:30\",\"2024-12-02T00:00:00+05:30\",\"2024-12-03T00:00:00+05:30\",\"2024-12-04T00:00:00+05:30\",\"2024-12-05T00:00:00+05:30\",\"2024-12-06T00:00:00+05:30\",\"2024-12-09T00:00:00+05:30\",\"2024-12-10T00:00:00+05:30\",\"2024-12-11T00:00:00+05:30\",\"2024-12-12T00:00:00+05:30\",\"2024-12-13T00:00:00+05:30\",\"2024-12-16T00:00:00+05:30\",\"2024-12-17T00:00:00+05:30\",\"2024-12-18T00:00:00+05:30\",\"2024-12-19T00:00:00+05:30\",\"2024-12-20T00:00:00+05:30\"],\"y\":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,4977.578443074837,4986.700610684481,4991.8700434106],\"type\":\"scatter\"},{\"fill\":\"tonexty\",\"fillcolor\":\"rgba(173, 216, 230, 0.2)\",\"line\":{\"color\":\"blue\",\"width\":1},\"name\":\"Lower Band\",\"x\":[\"2024-11-21T00:00:00+05:30\",\"2024-11-22T00:00:00+05:30\",\"2024-11-25T00:00:00+05:30\",\"2024-11-26T00:00:00+05:30\",\"2024-11-27T00:00:00+05:30\",\"2024-11-28T00:00:00+05:30\",\"2024-11-29T00:00:00+05:30\",\"2024-12-02T00:00:00+05:30\",\"2024-12-03T00:00:00+05:30\",\"2024-12-04T00:00:00+05:30\",\"2024-12-05T00:00:00+05:30\",\"2024-12-06T00:00:00+05:30\",\"2024-12-09T00:00:00+05:30\",\"2024-12-10T00:00:00+05:30\",\"2024-12-11T00:00:00+05:30\",\"2024-12-12T00:00:00+05:30\",\"2024-12-13T00:00:00+05:30\",\"2024-12-16T00:00:00+05:30\",\"2024-12-17T00:00:00+05:30\",\"2024-12-18T00:00:00+05:30\",\"2024-12-19T00:00:00+05:30\",\"2024-12-20T00:00:00+05:30\"],\"y\":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,4810.0155840247735,4794.322406893642,4772.574974899947],\"type\":\"scatter\"},{\"line\":{\"color\":\"red\",\"width\":1},\"name\":\"SMA (20)\",\"x\":[\"2024-11-21T00:00:00+05:30\",\"2024-11-22T00:00:00+05:30\",\"2024-11-25T00:00:00+05:30\",\"2024-11-26T00:00:00+05:30\",\"2024-11-27T00:00:00+05:30\",\"2024-11-28T00:00:00+05:30\",\"2024-11-29T00:00:00+05:30\",\"2024-12-02T00:00:00+05:30\",\"2024-12-03T00:00:00+05:30\",\"2024-12-04T00:00:00+05:30\",\"2024-12-05T00:00:00+05:30\",\"2024-12-06T00:00:00+05:30\",\"2024-12-09T00:00:00+05:30\",\"2024-12-10T00:00:00+05:30\",\"2024-12-11T00:00:00+05:30\",\"2024-12-12T00:00:00+05:30\",\"2024-12-13T00:00:00+05:30\",\"2024-12-16T00:00:00+05:30\",\"2024-12-17T00:00:00+05:30\",\"2024-12-18T00:00:00+05:30\",\"2024-12-19T00:00:00+05:30\",\"2024-12-20T00:00:00+05:30\"],\"y\":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,4893.797013549805,4890.511508789062,4882.222509155274],\"type\":\"scatter\"}],                        {\"template\":{\"data\":{\"histogram2dcontour\":[{\"type\":\"histogram2dcontour\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"},\"colorscale\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]]}],\"choropleth\":[{\"type\":\"choropleth\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}],\"histogram2d\":[{\"type\":\"histogram2d\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"},\"colorscale\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]]}],\"heatmap\":[{\"type\":\"heatmap\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"},\"colorscale\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]]}],\"heatmapgl\":[{\"type\":\"heatmapgl\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"},\"colorscale\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]]}],\"contourcarpet\":[{\"type\":\"contourcarpet\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}],\"contour\":[{\"type\":\"contour\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"},\"colorscale\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]]}],\"surface\":[{\"type\":\"surface\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"},\"colorscale\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]]}],\"mesh3d\":[{\"type\":\"mesh3d\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}],\"scatter\":[{\"fillpattern\":{\"fillmode\":\"overlay\",\"size\":10,\"solidity\":0.2},\"type\":\"scatter\"}],\"parcoords\":[{\"type\":\"parcoords\",\"line\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"scatterpolargl\":[{\"type\":\"scatterpolargl\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"bar\":[{\"error_x\":{\"color\":\"#2a3f5f\"},\"error_y\":{\"color\":\"#2a3f5f\"},\"marker\":{\"line\":{\"color\":\"#E5ECF6\",\"width\":0.5},\"pattern\":{\"fillmode\":\"overlay\",\"size\":10,\"solidity\":0.2}},\"type\":\"bar\"}],\"scattergeo\":[{\"type\":\"scattergeo\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"scatterpolar\":[{\"type\":\"scatterpolar\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"histogram\":[{\"marker\":{\"pattern\":{\"fillmode\":\"overlay\",\"size\":10,\"solidity\":0.2}},\"type\":\"histogram\"}],\"scattergl\":[{\"type\":\"scattergl\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"scatter3d\":[{\"type\":\"scatter3d\",\"line\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}},\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"scattermapbox\":[{\"type\":\"scattermapbox\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"scatterternary\":[{\"type\":\"scatterternary\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"scattercarpet\":[{\"type\":\"scattercarpet\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"carpet\":[{\"aaxis\":{\"endlinecolor\":\"#2a3f5f\",\"gridcolor\":\"white\",\"linecolor\":\"white\",\"minorgridcolor\":\"white\",\"startlinecolor\":\"#2a3f5f\"},\"baxis\":{\"endlinecolor\":\"#2a3f5f\",\"gridcolor\":\"white\",\"linecolor\":\"white\",\"minorgridcolor\":\"white\",\"startlinecolor\":\"#2a3f5f\"},\"type\":\"carpet\"}],\"table\":[{\"cells\":{\"fill\":{\"color\":\"#EBF0F8\"},\"line\":{\"color\":\"white\"}},\"header\":{\"fill\":{\"color\":\"#C8D4E3\"},\"line\":{\"color\":\"white\"}},\"type\":\"table\"}],\"barpolar\":[{\"marker\":{\"line\":{\"color\":\"#E5ECF6\",\"width\":0.5},\"pattern\":{\"fillmode\":\"overlay\",\"size\":10,\"solidity\":0.2}},\"type\":\"barpolar\"}],\"pie\":[{\"automargin\":true,\"type\":\"pie\"}]},\"layout\":{\"autotypenumbers\":\"strict\",\"colorway\":[\"#636efa\",\"#EF553B\",\"#00cc96\",\"#ab63fa\",\"#FFA15A\",\"#19d3f3\",\"#FF6692\",\"#B6E880\",\"#FF97FF\",\"#FECB52\"],\"font\":{\"color\":\"#2a3f5f\"},\"hovermode\":\"closest\",\"hoverlabel\":{\"align\":\"left\"},\"paper_bgcolor\":\"white\",\"plot_bgcolor\":\"#E5ECF6\",\"polar\":{\"bgcolor\":\"#E5ECF6\",\"angularaxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\"},\"radialaxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\"}},\"ternary\":{\"bgcolor\":\"#E5ECF6\",\"aaxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\"},\"baxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\"},\"caxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\"}},\"coloraxis\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}},\"colorscale\":{\"sequential\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]],\"sequentialminus\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]],\"diverging\":[[0,\"#8e0152\"],[0.1,\"#c51b7d\"],[0.2,\"#de77ae\"],[0.3,\"#f1b6da\"],[0.4,\"#fde0ef\"],[0.5,\"#f7f7f7\"],[0.6,\"#e6f5d0\"],[0.7,\"#b8e186\"],[0.8,\"#7fbc41\"],[0.9,\"#4d9221\"],[1,\"#276419\"]]},\"xaxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\",\"title\":{\"standoff\":15},\"zerolinecolor\":\"white\",\"automargin\":true,\"zerolinewidth\":2},\"yaxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\",\"title\":{\"standoff\":15},\"zerolinecolor\":\"white\",\"automargin\":true,\"zerolinewidth\":2},\"scene\":{\"xaxis\":{\"backgroundcolor\":\"#E5ECF6\",\"gridcolor\":\"white\",\"linecolor\":\"white\",\"showbackground\":true,\"ticks\":\"\",\"zerolinecolor\":\"white\",\"gridwidth\":2},\"yaxis\":{\"backgroundcolor\":\"#E5ECF6\",\"gridcolor\":\"white\",\"linecolor\":\"white\",\"showbackground\":true,\"ticks\":\"\",\"zerolinecolor\":\"white\",\"gridwidth\":2},\"zaxis\":{\"backgroundcolor\":\"#E5ECF6\",\"gridcolor\":\"white\",\"linecolor\":\"white\",\"showbackground\":true,\"ticks\":\"\",\"zerolinecolor\":\"white\",\"gridwidth\":2}},\"shapedefaults\":{\"line\":{\"color\":\"#2a3f5f\"}},\"annotationdefaults\":{\"arrowcolor\":\"#2a3f5f\",\"arrowhead\":0,\"arrowwidth\":1},\"geo\":{\"bgcolor\":\"white\",\"landcolor\":\"#E5ECF6\",\"subunitcolor\":\"white\",\"showland\":true,\"showlakes\":true,\"lakecolor\":\"white\"},\"title\":{\"x\":0.05},\"mapbox\":{\"style\":\"light\"}}},\"xaxis\":{\"rangeslider\":{\"visible\":false},\"title\":{\"text\":\"Date\"}},\"title\":{\"text\":\"Nifty Auto Index Combined Bollinger Bands\"},\"yaxis\":{\"title\":{\"text\":\"Price\"}},\"height\":600},                        {\"responsive\": true}                    ).then(function(){\n",
-              "                            \n",
-              "var gd = document.getElementById('00856ef4-3b8e-430c-89c6-063729216d16');\n",
-              "var x = new MutationObserver(function (mutations, observer) {{\n",
-              "        var display = window.getComputedStyle(gd).display;\n",
-              "        if (!display || display === 'none') {{\n",
-              "            console.log([gd, 'removed!']);\n",
-              "            Plotly.purge(gd);\n",
-              "            observer.disconnect();\n",
-              "        }}\n",
-              "}});\n",
-              "\n",
-              "// Listen for the removal of the full notebook cells\n",
-              "var notebookContainer = gd.closest('#notebook-container');\n",
-              "if (notebookContainer) {{\n",
-              "    x.observe(notebookContainer, {childList: true});\n",
-              "}}\n",
-              "\n",
-              "// Listen for the clearing of the current output cell\n",
-              "var outputEl = gd.closest('.output');\n",
-              "if (outputEl) {{\n",
-              "    x.observe(outputEl, {childList: true});\n",
-              "}}\n",
-              "\n",
-              "                        })                };                            </script>        </div>\n",
-              "</body>\n",
-              "</html>"
-            ]
-          },
-          "metadata": {}
-        },
-        {
-          "output_type": "display_data",
-          "data": {
-            "text/html": [
-              "<html>\n",
-              "<head><meta charset=\"utf-8\" /></head>\n",
-              "<body>\n",
-              "    <div>            <script src=\"https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS-MML_SVG\"></script><script type=\"text/javascript\">if (window.MathJax && window.MathJax.Hub && window.MathJax.Hub.Config) {window.MathJax.Hub.Config({SVG: {font: \"STIX-Web\"}});}</script>                <script type=\"text/javascript\">window.PlotlyConfig = {MathJaxConfig: 'local'};</script>\n",
-              "        <script charset=\"utf-8\" src=\"https://cdn.plot.ly/plotly-2.35.2.min.js\"></script>                <div id=\"891bd802-79c8-46a3-bfd1-8fbc033c50cd\" class=\"plotly-graph-div\" style=\"height:400px; width:100%;\"></div>            <script type=\"text/javascript\">                                    window.PLOTLYENV=window.PLOTLYENV || {};                                    if (document.getElementById(\"891bd802-79c8-46a3-bfd1-8fbc033c50cd\")) {                    Plotly.newPlot(                        \"891bd802-79c8-46a3-bfd1-8fbc033c50cd\",                        [{\"line\":{\"color\":\"purple\",\"width\":1.5},\"name\":\"RSI\",\"x\":[\"2024-11-21T00:00:00+05:30\",\"2024-11-22T00:00:00+05:30\",\"2024-11-25T00:00:00+05:30\",\"2024-11-26T00:00:00+05:30\",\"2024-11-27T00:00:00+05:30\",\"2024-11-28T00:00:00+05:30\",\"2024-11-29T00:00:00+05:30\",\"2024-12-02T00:00:00+05:30\",\"2024-12-03T00:00:00+05:30\",\"2024-12-04T00:00:00+05:30\",\"2024-12-05T00:00:00+05:30\",\"2024-12-06T00:00:00+05:30\",\"2024-12-09T00:00:00+05:30\",\"2024-12-10T00:00:00+05:30\",\"2024-12-11T00:00:00+05:30\",\"2024-12-12T00:00:00+05:30\",\"2024-12-13T00:00:00+05:30\",\"2024-12-16T00:00:00+05:30\",\"2024-12-17T00:00:00+05:30\",\"2024-12-18T00:00:00+05:30\",\"2024-12-19T00:00:00+05:30\",\"2024-12-20T00:00:00+05:30\"],\"y\":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,56.98906516562503,44.7685100857844,46.473718167572166,50.879414976424755,39.6379146817532,44.13815300272602,38.22116210444493,31.20943757451994],\"type\":\"scatter\"}],                        {\"template\":{\"data\":{\"histogram2dcontour\":[{\"type\":\"histogram2dcontour\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"},\"colorscale\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]]}],\"choropleth\":[{\"type\":\"choropleth\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}],\"histogram2d\":[{\"type\":\"histogram2d\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"},\"colorscale\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]]}],\"heatmap\":[{\"type\":\"heatmap\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"},\"colorscale\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]]}],\"heatmapgl\":[{\"type\":\"heatmapgl\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"},\"colorscale\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]]}],\"contourcarpet\":[{\"type\":\"contourcarpet\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}],\"contour\":[{\"type\":\"contour\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"},\"colorscale\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]]}],\"surface\":[{\"type\":\"surface\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"},\"colorscale\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]]}],\"mesh3d\":[{\"type\":\"mesh3d\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}],\"scatter\":[{\"fillpattern\":{\"fillmode\":\"overlay\",\"size\":10,\"solidity\":0.2},\"type\":\"scatter\"}],\"parcoords\":[{\"type\":\"parcoords\",\"line\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"scatterpolargl\":[{\"type\":\"scatterpolargl\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"bar\":[{\"error_x\":{\"color\":\"#2a3f5f\"},\"error_y\":{\"color\":\"#2a3f5f\"},\"marker\":{\"line\":{\"color\":\"#E5ECF6\",\"width\":0.5},\"pattern\":{\"fillmode\":\"overlay\",\"size\":10,\"solidity\":0.2}},\"type\":\"bar\"}],\"scattergeo\":[{\"type\":\"scattergeo\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"scatterpolar\":[{\"type\":\"scatterpolar\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"histogram\":[{\"marker\":{\"pattern\":{\"fillmode\":\"overlay\",\"size\":10,\"solidity\":0.2}},\"type\":\"histogram\"}],\"scattergl\":[{\"type\":\"scattergl\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"scatter3d\":[{\"type\":\"scatter3d\",\"line\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}},\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"scattermapbox\":[{\"type\":\"scattermapbox\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"scatterternary\":[{\"type\":\"scatterternary\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"scattercarpet\":[{\"type\":\"scattercarpet\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"carpet\":[{\"aaxis\":{\"endlinecolor\":\"#2a3f5f\",\"gridcolor\":\"white\",\"linecolor\":\"white\",\"minorgridcolor\":\"white\",\"startlinecolor\":\"#2a3f5f\"},\"baxis\":{\"endlinecolor\":\"#2a3f5f\",\"gridcolor\":\"white\",\"linecolor\":\"white\",\"minorgridcolor\":\"white\",\"startlinecolor\":\"#2a3f5f\"},\"type\":\"carpet\"}],\"table\":[{\"cells\":{\"fill\":{\"color\":\"#EBF0F8\"},\"line\":{\"color\":\"white\"}},\"header\":{\"fill\":{\"color\":\"#C8D4E3\"},\"line\":{\"color\":\"white\"}},\"type\":\"table\"}],\"barpolar\":[{\"marker\":{\"line\":{\"color\":\"#E5ECF6\",\"width\":0.5},\"pattern\":{\"fillmode\":\"overlay\",\"size\":10,\"solidity\":0.2}},\"type\":\"barpolar\"}],\"pie\":[{\"automargin\":true,\"type\":\"pie\"}]},\"layout\":{\"autotypenumbers\":\"strict\",\"colorway\":[\"#636efa\",\"#EF553B\",\"#00cc96\",\"#ab63fa\",\"#FFA15A\",\"#19d3f3\",\"#FF6692\",\"#B6E880\",\"#FF97FF\",\"#FECB52\"],\"font\":{\"color\":\"#2a3f5f\"},\"hovermode\":\"closest\",\"hoverlabel\":{\"align\":\"left\"},\"paper_bgcolor\":\"white\",\"plot_bgcolor\":\"#E5ECF6\",\"polar\":{\"bgcolor\":\"#E5ECF6\",\"angularaxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\"},\"radialaxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\"}},\"ternary\":{\"bgcolor\":\"#E5ECF6\",\"aaxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\"},\"baxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\"},\"caxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\"}},\"coloraxis\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}},\"colorscale\":{\"sequential\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]],\"sequentialminus\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]],\"diverging\":[[0,\"#8e0152\"],[0.1,\"#c51b7d\"],[0.2,\"#de77ae\"],[0.3,\"#f1b6da\"],[0.4,\"#fde0ef\"],[0.5,\"#f7f7f7\"],[0.6,\"#e6f5d0\"],[0.7,\"#b8e186\"],[0.8,\"#7fbc41\"],[0.9,\"#4d9221\"],[1,\"#276419\"]]},\"xaxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\",\"title\":{\"standoff\":15},\"zerolinecolor\":\"white\",\"automargin\":true,\"zerolinewidth\":2},\"yaxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\",\"title\":{\"standoff\":15},\"zerolinecolor\":\"white\",\"automargin\":true,\"zerolinewidth\":2},\"scene\":{\"xaxis\":{\"backgroundcolor\":\"#E5ECF6\",\"gridcolor\":\"white\",\"linecolor\":\"white\",\"showbackground\":true,\"ticks\":\"\",\"zerolinecolor\":\"white\",\"gridwidth\":2},\"yaxis\":{\"backgroundcolor\":\"#E5ECF6\",\"gridcolor\":\"white\",\"linecolor\":\"white\",\"showbackground\":true,\"ticks\":\"\",\"zerolinecolor\":\"white\",\"gridwidth\":2},\"zaxis\":{\"backgroundcolor\":\"#E5ECF6\",\"gridcolor\":\"white\",\"linecolor\":\"white\",\"showbackground\":true,\"ticks\":\"\",\"zerolinecolor\":\"white\",\"gridwidth\":2}},\"shapedefaults\":{\"line\":{\"color\":\"#2a3f5f\"}},\"annotationdefaults\":{\"arrowcolor\":\"#2a3f5f\",\"arrowhead\":0,\"arrowwidth\":1},\"geo\":{\"bgcolor\":\"white\",\"landcolor\":\"#E5ECF6\",\"subunitcolor\":\"white\",\"showland\":true,\"showlakes\":true,\"lakecolor\":\"white\"},\"title\":{\"x\":0.05},\"mapbox\":{\"style\":\"light\"}}},\"shapes\":[{\"line\":{\"color\":\"red\",\"dash\":\"dot\"},\"type\":\"line\",\"x0\":0,\"x1\":1,\"xref\":\"x domain\",\"y0\":70,\"y1\":70,\"yref\":\"y\"},{\"line\":{\"color\":\"green\",\"dash\":\"dot\"},\"type\":\"line\",\"x0\":0,\"x1\":1,\"xref\":\"x domain\",\"y0\":30,\"y1\":30,\"yref\":\"y\"}],\"annotations\":[{\"showarrow\":false,\"text\":\"Overbought (70)\",\"x\":1,\"xanchor\":\"right\",\"xref\":\"x domain\",\"y\":70,\"yanchor\":\"bottom\",\"yref\":\"y\"},{\"showarrow\":false,\"text\":\"Oversold (30)\",\"x\":1,\"xanchor\":\"right\",\"xref\":\"x domain\",\"y\":30,\"yanchor\":\"bottom\",\"yref\":\"y\"}],\"title\":{\"text\":\"Nifty Auto Index Combined RSI (14)\"},\"xaxis\":{\"title\":{\"text\":\"Date\"}},\"yaxis\":{\"title\":{\"text\":\"RSI\"}},\"height\":400},                        {\"responsive\": true}                    ).then(function(){\n",
-              "                            \n",
-              "var gd = document.getElementById('891bd802-79c8-46a3-bfd1-8fbc033c50cd');\n",
-              "var x = new MutationObserver(function (mutations, observer) {{\n",
-              "        var display = window.getComputedStyle(gd).display;\n",
-              "        if (!display || display === 'none') {{\n",
-              "            console.log([gd, 'removed!']);\n",
-              "            Plotly.purge(gd);\n",
-              "            observer.disconnect();\n",
-              "        }}\n",
-              "}});\n",
-              "\n",
-              "// Listen for the removal of the full notebook cells\n",
-              "var notebookContainer = gd.closest('#notebook-container');\n",
-              "if (notebookContainer) {{\n",
-              "    x.observe(notebookContainer, {childList: true});\n",
-              "}}\n",
-              "\n",
-              "// Listen for the clearing of the current output cell\n",
-              "var outputEl = gd.closest('.output');\n",
-              "if (outputEl) {{\n",
-              "    x.observe(outputEl, {childList: true});\n",
-              "}}\n",
-              "\n",
-              "                        })                };                            </script>        </div>\n",
-              "</body>\n",
-              "</html>"
-            ]
-          },
-          "metadata": {}
-        },
-        {
-          "output_type": "stream",
-          "name": "stdout",
-          "text": [
-            "Combined Verdict for Nifty Auto Index: Neutral\n",
-            "\n",
-            "Available Companies in Selected Sector:\n",
-            "- TATAMOTORS.NS\n",
-            "- MARUTI.NS\n",
-            "- M&M.NS\n",
-            "- HEROMOTOCO.NS\n",
-            "- EICHERMOT.NS\n",
-            "\n",
-            "Individual Stock Analysis:\n",
-            "Enter the stock ticker symbol (e.g., AAPL, TSLA): SUZLON.BO\n",
-            "Selected Stock: SUZLON.BO\n"
-          ]
-        },
-        {
-          "output_type": "display_data",
-          "data": {
-            "text/html": [
-              "<html>\n",
-              "<head><meta charset=\"utf-8\" /></head>\n",
-              "<body>\n",
-              "    <div>            <script src=\"https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS-MML_SVG\"></script><script type=\"text/javascript\">if (window.MathJax && window.MathJax.Hub && window.MathJax.Hub.Config) {window.MathJax.Hub.Config({SVG: {font: \"STIX-Web\"}});}</script>                <script type=\"text/javascript\">window.PlotlyConfig = {MathJaxConfig: 'local'};</script>\n",
-              "        <script charset=\"utf-8\" src=\"https://cdn.plot.ly/plotly-2.35.2.min.js\"></script>                <div id=\"29139e72-fdff-490c-8846-66adb49cb87d\" class=\"plotly-graph-div\" style=\"height:600px; width:100%;\"></div>            <script type=\"text/javascript\">                                    window.PLOTLYENV=window.PLOTLYENV || {};                                    if (document.getElementById(\"29139e72-fdff-490c-8846-66adb49cb87d\")) {                    Plotly.newPlot(                        \"29139e72-fdff-490c-8846-66adb49cb87d\",                        [{\"close\":[65.45999908447266,65.1500015258789,64.26000213623047,63.54999923706055,63.61000061035156,63.7400016784668,63.0,66.1500015258789,65.41000366210938,67.72000122070312,68.22000122070312,67.37000274658203,67.30999755859375,66.52999877929688,66.08000183105469,65.75,66.22000122070312,66.36000061035156,69.44000244140625,67.94999694824219,67.02999877929688,65.19999694824219],\"high\":[65.45999908447266,68.31999969482422,67.5,64.87000274658203,64.29000091552734,65.44000244140625,64.55999755859375,66.1500015258789,67.44999694824219,68.43000030517578,68.79000091552734,68.37000274658203,67.80000305175781,67.36000061035156,67.18000030517578,66.4000015258789,67.5999984741211,68.5,69.66999816894531,70.19999694824219,68.5,67.81999969482422],\"low\":[63.65999984741211,64.58000183105469,63.75,63.31999969482422,62.75,62.900001525878906,62.45000076293945,62.290000915527344,65.06999969482422,65.3499984741211,66.8499984741211,67.19999694824219,66.41999816894531,65.9000015258789,65.91000366210938,64.9000015258789,65.2699966430664,66.18000030517578,66.19999694824219,67.37000274658203,66.0199966430664,65.1500015258789],\"name\":\"Candlestick\",\"open\":[64.20999908447266,66.9000015258789,67.01000213623047,64.51000213623047,63.970001220703125,63.619998931884766,64.55999755859375,63.189998626708984,66.80999755859375,65.9800033569336,68.19999694824219,68.25,67.4000015258789,67.30000305175781,66.48999786376953,65.83999633789062,65.51000213623047,67.5999984741211,66.43000030517578,69.9000015258789,66.0199966430664,67.48999786376953],\"x\":[\"2024-11-21T00:00:00+05:30\",\"2024-11-22T00:00:00+05:30\",\"2024-11-25T00:00:00+05:30\",\"2024-11-26T00:00:00+05:30\",\"2024-11-27T00:00:00+05:30\",\"2024-11-28T00:00:00+05:30\",\"2024-11-29T00:00:00+05:30\",\"2024-12-02T00:00:00+05:30\",\"2024-12-03T00:00:00+05:30\",\"2024-12-04T00:00:00+05:30\",\"2024-12-05T00:00:00+05:30\",\"2024-12-06T00:00:00+05:30\",\"2024-12-09T00:00:00+05:30\",\"2024-12-10T00:00:00+05:30\",\"2024-12-11T00:00:00+05:30\",\"2024-12-12T00:00:00+05:30\",\"2024-12-13T00:00:00+05:30\",\"2024-12-16T00:00:00+05:30\",\"2024-12-17T00:00:00+05:30\",\"2024-12-18T00:00:00+05:30\",\"2024-12-19T00:00:00+05:30\",\"2024-12-20T00:00:00+05:30\"],\"type\":\"candlestick\"},{\"line\":{\"color\":\"blue\",\"width\":1},\"name\":\"Upper Band\",\"x\":[\"2024-11-21T00:00:00+05:30\",\"2024-11-22T00:00:00+05:30\",\"2024-11-25T00:00:00+05:30\",\"2024-11-26T00:00:00+05:30\",\"2024-11-27T00:00:00+05:30\",\"2024-11-28T00:00:00+05:30\",\"2024-11-29T00:00:00+05:30\",\"2024-12-02T00:00:00+05:30\",\"2024-12-03T00:00:00+05:30\",\"2024-12-04T00:00:00+05:30\",\"2024-12-05T00:00:00+05:30\",\"2024-12-06T00:00:00+05:30\",\"2024-12-09T00:00:00+05:30\",\"2024-12-10T00:00:00+05:30\",\"2024-12-11T00:00:00+05:30\",\"2024-12-12T00:00:00+05:30\",\"2024-12-13T00:00:00+05:30\",\"2024-12-16T00:00:00+05:30\",\"2024-12-17T00:00:00+05:30\",\"2024-12-18T00:00:00+05:30\",\"2024-12-19T00:00:00+05:30\",\"2024-12-20T00:00:00+05:30\"],\"y\":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,69.45390424335868,69.5552254134415,69.55512113644487],\"type\":\"scatter\"},{\"fill\":\"tonexty\",\"fillcolor\":\"rgba(173, 216, 230, 0.2)\",\"line\":{\"color\":\"blue\",\"width\":1},\"name\":\"Lower Band\",\"x\":[\"2024-11-21T00:00:00+05:30\",\"2024-11-22T00:00:00+05:30\",\"2024-11-25T00:00:00+05:30\",\"2024-11-26T00:00:00+05:30\",\"2024-11-27T00:00:00+05:30\",\"2024-11-28T00:00:00+05:30\",\"2024-11-29T00:00:00+05:30\",\"2024-12-02T00:00:00+05:30\",\"2024-12-03T00:00:00+05:30\",\"2024-12-04T00:00:00+05:30\",\"2024-12-05T00:00:00+05:30\",\"2024-12-06T00:00:00+05:30\",\"2024-12-09T00:00:00+05:30\",\"2024-12-10T00:00:00+05:30\",\"2024-12-11T00:00:00+05:30\",\"2024-12-12T00:00:00+05:30\",\"2024-12-13T00:00:00+05:30\",\"2024-12-16T00:00:00+05:30\",\"2024-12-17T00:00:00+05:30\",\"2024-12-18T00:00:00+05:30\",\"2024-12-19T00:00:00+05:30\",\"2024-12-20T00:00:00+05:30\"],\"y\":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,62.474097160449915,62.52977595984952,62.53487977908248],\"type\":\"scatter\"},{\"line\":{\"color\":\"red\",\"width\":1},\"name\":\"SMA (20)\",\"x\":[\"2024-11-21T00:00:00+05:30\",\"2024-11-22T00:00:00+05:30\",\"2024-11-25T00:00:00+05:30\",\"2024-11-26T00:00:00+05:30\",\"2024-11-27T00:00:00+05:30\",\"2024-11-28T00:00:00+05:30\",\"2024-11-29T00:00:00+05:30\",\"2024-12-02T00:00:00+05:30\",\"2024-12-03T00:00:00+05:30\",\"2024-12-04T00:00:00+05:30\",\"2024-12-05T00:00:00+05:30\",\"2024-12-06T00:00:00+05:30\",\"2024-12-09T00:00:00+05:30\",\"2024-12-10T00:00:00+05:30\",\"2024-12-11T00:00:00+05:30\",\"2024-12-12T00:00:00+05:30\",\"2024-12-13T00:00:00+05:30\",\"2024-12-16T00:00:00+05:30\",\"2024-12-17T00:00:00+05:30\",\"2024-12-18T00:00:00+05:30\",\"2024-12-19T00:00:00+05:30\",\"2024-12-20T00:00:00+05:30\"],\"y\":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,65.9640007019043,66.04250068664551,66.04500045776368],\"type\":\"scatter\"}],                        {\"template\":{\"data\":{\"histogram2dcontour\":[{\"type\":\"histogram2dcontour\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"},\"colorscale\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]]}],\"choropleth\":[{\"type\":\"choropleth\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}],\"histogram2d\":[{\"type\":\"histogram2d\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"},\"colorscale\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]]}],\"heatmap\":[{\"type\":\"heatmap\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"},\"colorscale\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]]}],\"heatmapgl\":[{\"type\":\"heatmapgl\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"},\"colorscale\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]]}],\"contourcarpet\":[{\"type\":\"contourcarpet\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}],\"contour\":[{\"type\":\"contour\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"},\"colorscale\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]]}],\"surface\":[{\"type\":\"surface\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"},\"colorscale\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]]}],\"mesh3d\":[{\"type\":\"mesh3d\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}],\"scatter\":[{\"fillpattern\":{\"fillmode\":\"overlay\",\"size\":10,\"solidity\":0.2},\"type\":\"scatter\"}],\"parcoords\":[{\"type\":\"parcoords\",\"line\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"scatterpolargl\":[{\"type\":\"scatterpolargl\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"bar\":[{\"error_x\":{\"color\":\"#2a3f5f\"},\"error_y\":{\"color\":\"#2a3f5f\"},\"marker\":{\"line\":{\"color\":\"#E5ECF6\",\"width\":0.5},\"pattern\":{\"fillmode\":\"overlay\",\"size\":10,\"solidity\":0.2}},\"type\":\"bar\"}],\"scattergeo\":[{\"type\":\"scattergeo\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"scatterpolar\":[{\"type\":\"scatterpolar\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"histogram\":[{\"marker\":{\"pattern\":{\"fillmode\":\"overlay\",\"size\":10,\"solidity\":0.2}},\"type\":\"histogram\"}],\"scattergl\":[{\"type\":\"scattergl\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"scatter3d\":[{\"type\":\"scatter3d\",\"line\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}},\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"scattermapbox\":[{\"type\":\"scattermapbox\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"scatterternary\":[{\"type\":\"scatterternary\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"scattercarpet\":[{\"type\":\"scattercarpet\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"carpet\":[{\"aaxis\":{\"endlinecolor\":\"#2a3f5f\",\"gridcolor\":\"white\",\"linecolor\":\"white\",\"minorgridcolor\":\"white\",\"startlinecolor\":\"#2a3f5f\"},\"baxis\":{\"endlinecolor\":\"#2a3f5f\",\"gridcolor\":\"white\",\"linecolor\":\"white\",\"minorgridcolor\":\"white\",\"startlinecolor\":\"#2a3f5f\"},\"type\":\"carpet\"}],\"table\":[{\"cells\":{\"fill\":{\"color\":\"#EBF0F8\"},\"line\":{\"color\":\"white\"}},\"header\":{\"fill\":{\"color\":\"#C8D4E3\"},\"line\":{\"color\":\"white\"}},\"type\":\"table\"}],\"barpolar\":[{\"marker\":{\"line\":{\"color\":\"#E5ECF6\",\"width\":0.5},\"pattern\":{\"fillmode\":\"overlay\",\"size\":10,\"solidity\":0.2}},\"type\":\"barpolar\"}],\"pie\":[{\"automargin\":true,\"type\":\"pie\"}]},\"layout\":{\"autotypenumbers\":\"strict\",\"colorway\":[\"#636efa\",\"#EF553B\",\"#00cc96\",\"#ab63fa\",\"#FFA15A\",\"#19d3f3\",\"#FF6692\",\"#B6E880\",\"#FF97FF\",\"#FECB52\"],\"font\":{\"color\":\"#2a3f5f\"},\"hovermode\":\"closest\",\"hoverlabel\":{\"align\":\"left\"},\"paper_bgcolor\":\"white\",\"plot_bgcolor\":\"#E5ECF6\",\"polar\":{\"bgcolor\":\"#E5ECF6\",\"angularaxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\"},\"radialaxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\"}},\"ternary\":{\"bgcolor\":\"#E5ECF6\",\"aaxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\"},\"baxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\"},\"caxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\"}},\"coloraxis\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}},\"colorscale\":{\"sequential\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]],\"sequentialminus\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]],\"diverging\":[[0,\"#8e0152\"],[0.1,\"#c51b7d\"],[0.2,\"#de77ae\"],[0.3,\"#f1b6da\"],[0.4,\"#fde0ef\"],[0.5,\"#f7f7f7\"],[0.6,\"#e6f5d0\"],[0.7,\"#b8e186\"],[0.8,\"#7fbc41\"],[0.9,\"#4d9221\"],[1,\"#276419\"]]},\"xaxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\",\"title\":{\"standoff\":15},\"zerolinecolor\":\"white\",\"automargin\":true,\"zerolinewidth\":2},\"yaxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\",\"title\":{\"standoff\":15},\"zerolinecolor\":\"white\",\"automargin\":true,\"zerolinewidth\":2},\"scene\":{\"xaxis\":{\"backgroundcolor\":\"#E5ECF6\",\"gridcolor\":\"white\",\"linecolor\":\"white\",\"showbackground\":true,\"ticks\":\"\",\"zerolinecolor\":\"white\",\"gridwidth\":2},\"yaxis\":{\"backgroundcolor\":\"#E5ECF6\",\"gridcolor\":\"white\",\"linecolor\":\"white\",\"showbackground\":true,\"ticks\":\"\",\"zerolinecolor\":\"white\",\"gridwidth\":2},\"zaxis\":{\"backgroundcolor\":\"#E5ECF6\",\"gridcolor\":\"white\",\"linecolor\":\"white\",\"showbackground\":true,\"ticks\":\"\",\"zerolinecolor\":\"white\",\"gridwidth\":2}},\"shapedefaults\":{\"line\":{\"color\":\"#2a3f5f\"}},\"annotationdefaults\":{\"arrowcolor\":\"#2a3f5f\",\"arrowhead\":0,\"arrowwidth\":1},\"geo\":{\"bgcolor\":\"white\",\"landcolor\":\"#E5ECF6\",\"subunitcolor\":\"white\",\"showland\":true,\"showlakes\":true,\"lakecolor\":\"white\"},\"title\":{\"x\":0.05},\"mapbox\":{\"style\":\"light\"}}},\"title\":{\"text\":\"SUZLON.BO Bollinger Bands\"},\"xaxis\":{\"title\":{\"text\":\"Date\"}},\"yaxis\":{\"title\":{\"text\":\"Price\"}},\"height\":600},                        {\"responsive\": true}                    ).then(function(){\n",
-              "                            \n",
-              "var gd = document.getElementById('29139e72-fdff-490c-8846-66adb49cb87d');\n",
-              "var x = new MutationObserver(function (mutations, observer) {{\n",
-              "        var display = window.getComputedStyle(gd).display;\n",
-              "        if (!display || display === 'none') {{\n",
-              "            console.log([gd, 'removed!']);\n",
-              "            Plotly.purge(gd);\n",
-              "            observer.disconnect();\n",
-              "        }}\n",
-              "}});\n",
-              "\n",
-              "// Listen for the removal of the full notebook cells\n",
-              "var notebookContainer = gd.closest('#notebook-container');\n",
-              "if (notebookContainer) {{\n",
-              "    x.observe(notebookContainer, {childList: true});\n",
-              "}}\n",
-              "\n",
-              "// Listen for the clearing of the current output cell\n",
-              "var outputEl = gd.closest('.output');\n",
-              "if (outputEl) {{\n",
-              "    x.observe(outputEl, {childList: true});\n",
-              "}}\n",
-              "\n",
-              "                        })                };                            </script>        </div>\n",
-              "</body>\n",
-              "</html>"
-            ]
-          },
-          "metadata": {}
-        },
-        {
-          "output_type": "display_data",
-          "data": {
-            "text/html": [
-              "<html>\n",
-              "<head><meta charset=\"utf-8\" /></head>\n",
-              "<body>\n",
-              "    <div>            <script src=\"https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS-MML_SVG\"></script><script type=\"text/javascript\">if (window.MathJax && window.MathJax.Hub && window.MathJax.Hub.Config) {window.MathJax.Hub.Config({SVG: {font: \"STIX-Web\"}});}</script>                <script type=\"text/javascript\">window.PlotlyConfig = {MathJaxConfig: 'local'};</script>\n",
-              "        <script charset=\"utf-8\" src=\"https://cdn.plot.ly/plotly-2.35.2.min.js\"></script>                <div id=\"744aacff-d37b-4afc-870e-8956ff746f15\" class=\"plotly-graph-div\" style=\"height:400px; width:100%;\"></div>            <script type=\"text/javascript\">                                    window.PLOTLYENV=window.PLOTLYENV || {};                                    if (document.getElementById(\"744aacff-d37b-4afc-870e-8956ff746f15\")) {                    Plotly.newPlot(                        \"744aacff-d37b-4afc-870e-8956ff746f15\",                        [{\"line\":{\"color\":\"purple\",\"width\":1.5},\"name\":\"RSI\",\"x\":[\"2024-11-21T00:00:00+05:30\",\"2024-11-22T00:00:00+05:30\",\"2024-11-25T00:00:00+05:30\",\"2024-11-26T00:00:00+05:30\",\"2024-11-27T00:00:00+05:30\",\"2024-11-28T00:00:00+05:30\",\"2024-11-29T00:00:00+05:30\",\"2024-12-02T00:00:00+05:30\",\"2024-12-03T00:00:00+05:30\",\"2024-12-04T00:00:00+05:30\",\"2024-12-05T00:00:00+05:30\",\"2024-12-06T00:00:00+05:30\",\"2024-12-09T00:00:00+05:30\",\"2024-12-10T00:00:00+05:30\",\"2024-12-11T00:00:00+05:30\",\"2024-12-12T00:00:00+05:30\",\"2024-12-13T00:00:00+05:30\",\"2024-12-16T00:00:00+05:30\",\"2024-12-17T00:00:00+05:30\",\"2024-12-18T00:00:00+05:30\",\"2024-12-19T00:00:00+05:30\",\"2024-12-20T00:00:00+05:30\"],\"y\":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,52.65412127732261,52.56409504004778,58.68793426820418,63.11858362572808,71.2308827590729,63.949612652957526,63.19580108620164,46.59496678890101],\"type\":\"scatter\"}],                        {\"template\":{\"data\":{\"histogram2dcontour\":[{\"type\":\"histogram2dcontour\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"},\"colorscale\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]]}],\"choropleth\":[{\"type\":\"choropleth\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}],\"histogram2d\":[{\"type\":\"histogram2d\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"},\"colorscale\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]]}],\"heatmap\":[{\"type\":\"heatmap\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"},\"colorscale\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]]}],\"heatmapgl\":[{\"type\":\"heatmapgl\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"},\"colorscale\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]]}],\"contourcarpet\":[{\"type\":\"contourcarpet\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}],\"contour\":[{\"type\":\"contour\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"},\"colorscale\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]]}],\"surface\":[{\"type\":\"surface\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"},\"colorscale\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]]}],\"mesh3d\":[{\"type\":\"mesh3d\",\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}],\"scatter\":[{\"fillpattern\":{\"fillmode\":\"overlay\",\"size\":10,\"solidity\":0.2},\"type\":\"scatter\"}],\"parcoords\":[{\"type\":\"parcoords\",\"line\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"scatterpolargl\":[{\"type\":\"scatterpolargl\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"bar\":[{\"error_x\":{\"color\":\"#2a3f5f\"},\"error_y\":{\"color\":\"#2a3f5f\"},\"marker\":{\"line\":{\"color\":\"#E5ECF6\",\"width\":0.5},\"pattern\":{\"fillmode\":\"overlay\",\"size\":10,\"solidity\":0.2}},\"type\":\"bar\"}],\"scattergeo\":[{\"type\":\"scattergeo\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"scatterpolar\":[{\"type\":\"scatterpolar\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"histogram\":[{\"marker\":{\"pattern\":{\"fillmode\":\"overlay\",\"size\":10,\"solidity\":0.2}},\"type\":\"histogram\"}],\"scattergl\":[{\"type\":\"scattergl\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"scatter3d\":[{\"type\":\"scatter3d\",\"line\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}},\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"scattermapbox\":[{\"type\":\"scattermapbox\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"scatterternary\":[{\"type\":\"scatterternary\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"scattercarpet\":[{\"type\":\"scattercarpet\",\"marker\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}}}],\"carpet\":[{\"aaxis\":{\"endlinecolor\":\"#2a3f5f\",\"gridcolor\":\"white\",\"linecolor\":\"white\",\"minorgridcolor\":\"white\",\"startlinecolor\":\"#2a3f5f\"},\"baxis\":{\"endlinecolor\":\"#2a3f5f\",\"gridcolor\":\"white\",\"linecolor\":\"white\",\"minorgridcolor\":\"white\",\"startlinecolor\":\"#2a3f5f\"},\"type\":\"carpet\"}],\"table\":[{\"cells\":{\"fill\":{\"color\":\"#EBF0F8\"},\"line\":{\"color\":\"white\"}},\"header\":{\"fill\":{\"color\":\"#C8D4E3\"},\"line\":{\"color\":\"white\"}},\"type\":\"table\"}],\"barpolar\":[{\"marker\":{\"line\":{\"color\":\"#E5ECF6\",\"width\":0.5},\"pattern\":{\"fillmode\":\"overlay\",\"size\":10,\"solidity\":0.2}},\"type\":\"barpolar\"}],\"pie\":[{\"automargin\":true,\"type\":\"pie\"}]},\"layout\":{\"autotypenumbers\":\"strict\",\"colorway\":[\"#636efa\",\"#EF553B\",\"#00cc96\",\"#ab63fa\",\"#FFA15A\",\"#19d3f3\",\"#FF6692\",\"#B6E880\",\"#FF97FF\",\"#FECB52\"],\"font\":{\"color\":\"#2a3f5f\"},\"hovermode\":\"closest\",\"hoverlabel\":{\"align\":\"left\"},\"paper_bgcolor\":\"white\",\"plot_bgcolor\":\"#E5ECF6\",\"polar\":{\"bgcolor\":\"#E5ECF6\",\"angularaxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\"},\"radialaxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\"}},\"ternary\":{\"bgcolor\":\"#E5ECF6\",\"aaxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\"},\"baxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\"},\"caxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\"}},\"coloraxis\":{\"colorbar\":{\"outlinewidth\":0,\"ticks\":\"\"}},\"colorscale\":{\"sequential\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]],\"sequentialminus\":[[0.0,\"#0d0887\"],[0.1111111111111111,\"#46039f\"],[0.2222222222222222,\"#7201a8\"],[0.3333333333333333,\"#9c179e\"],[0.4444444444444444,\"#bd3786\"],[0.5555555555555556,\"#d8576b\"],[0.6666666666666666,\"#ed7953\"],[0.7777777777777778,\"#fb9f3a\"],[0.8888888888888888,\"#fdca26\"],[1.0,\"#f0f921\"]],\"diverging\":[[0,\"#8e0152\"],[0.1,\"#c51b7d\"],[0.2,\"#de77ae\"],[0.3,\"#f1b6da\"],[0.4,\"#fde0ef\"],[0.5,\"#f7f7f7\"],[0.6,\"#e6f5d0\"],[0.7,\"#b8e186\"],[0.8,\"#7fbc41\"],[0.9,\"#4d9221\"],[1,\"#276419\"]]},\"xaxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\",\"title\":{\"standoff\":15},\"zerolinecolor\":\"white\",\"automargin\":true,\"zerolinewidth\":2},\"yaxis\":{\"gridcolor\":\"white\",\"linecolor\":\"white\",\"ticks\":\"\",\"title\":{\"standoff\":15},\"zerolinecolor\":\"white\",\"automargin\":true,\"zerolinewidth\":2},\"scene\":{\"xaxis\":{\"backgroundcolor\":\"#E5ECF6\",\"gridcolor\":\"white\",\"linecolor\":\"white\",\"showbackground\":true,\"ticks\":\"\",\"zerolinecolor\":\"white\",\"gridwidth\":2},\"yaxis\":{\"backgroundcolor\":\"#E5ECF6\",\"gridcolor\":\"white\",\"linecolor\":\"white\",\"showbackground\":true,\"ticks\":\"\",\"zerolinecolor\":\"white\",\"gridwidth\":2},\"zaxis\":{\"backgroundcolor\":\"#E5ECF6\",\"gridcolor\":\"white\",\"linecolor\":\"white\",\"showbackground\":true,\"ticks\":\"\",\"zerolinecolor\":\"white\",\"gridwidth\":2}},\"shapedefaults\":{\"line\":{\"color\":\"#2a3f5f\"}},\"annotationdefaults\":{\"arrowcolor\":\"#2a3f5f\",\"arrowhead\":0,\"arrowwidth\":1},\"geo\":{\"bgcolor\":\"white\",\"landcolor\":\"#E5ECF6\",\"subunitcolor\":\"white\",\"showland\":true,\"showlakes\":true,\"lakecolor\":\"white\"},\"title\":{\"x\":0.05},\"mapbox\":{\"style\":\"light\"}}},\"shapes\":[{\"line\":{\"color\":\"red\",\"dash\":\"dot\"},\"type\":\"line\",\"x0\":0,\"x1\":1,\"xref\":\"x domain\",\"y0\":70,\"y1\":70,\"yref\":\"y\"},{\"line\":{\"color\":\"green\",\"dash\":\"dot\"},\"type\":\"line\",\"x0\":0,\"x1\":1,\"xref\":\"x domain\",\"y0\":30,\"y1\":30,\"yref\":\"y\"}],\"annotations\":[{\"showarrow\":false,\"text\":\"Overbought (70)\",\"x\":1,\"xanchor\":\"right\",\"xref\":\"x domain\",\"y\":70,\"yanchor\":\"bottom\",\"yref\":\"y\"},{\"showarrow\":false,\"text\":\"Oversold (30)\",\"x\":1,\"xanchor\":\"right\",\"xref\":\"x domain\",\"y\":30,\"yanchor\":\"bottom\",\"yref\":\"y\"}],\"title\":{\"text\":\"SUZLON.BO RSI (14)\"},\"xaxis\":{\"title\":{\"text\":\"Date\"}},\"yaxis\":{\"title\":{\"text\":\"RSI\"}},\"height\":400},                        {\"responsive\": true}                    ).then(function(){\n",
-              "                            \n",
-              "var gd = document.getElementById('744aacff-d37b-4afc-870e-8956ff746f15');\n",
-              "var x = new MutationObserver(function (mutations, observer) {{\n",
-              "        var display = window.getComputedStyle(gd).display;\n",
-              "        if (!display || display === 'none') {{\n",
-              "            console.log([gd, 'removed!']);\n",
-              "            Plotly.purge(gd);\n",
-              "            observer.disconnect();\n",
-              "        }}\n",
-              "}});\n",
-              "\n",
-              "// Listen for the removal of the full notebook cells\n",
-              "var notebookContainer = gd.closest('#notebook-container');\n",
-              "if (notebookContainer) {{\n",
-              "    x.observe(notebookContainer, {childList: true});\n",
-              "}}\n",
-              "\n",
-              "// Listen for the clearing of the current output cell\n",
-              "var outputEl = gd.closest('.output');\n",
-              "if (outputEl) {{\n",
-              "    x.observe(outputEl, {childList: true});\n",
-              "}}\n",
-              "\n",
-              "                        })                };                            </script>        </div>\n",
-              "</body>\n",
-              "</html>"
-            ]
-          },
-          "metadata": {}
-        }
-      ],
-      "source": [
-        "import pandas as pd\n",
-        "import yfinance as yf\n",
-        "import plotly.graph_objects as go\n",
-        "from datetime import datetime\n",
-        "\n",
-        "# Load sectors and their stock tickers from a CSV file\n",
-        "def load_sector_data(csv_file='sectors.csv'):\n",
-        "    try:\n",
-        "        df = pd.read_csv(csv_file)\n",
-        "        sector_stocks = {}\n",
-        "        for index, row in df.iterrows():\n",
-        "            sector_name = row[0]\n",
-        "            tickers = row[1:].dropna().tolist()  # Get tickers from the row, ignoring NaNs\n",
-        "            sector_stocks[sector_name] = tickers\n",
-        "        return sector_stocks\n",
-        "    except Exception as e:\n",
-        "        print(f\"No sector data from CSV : {e}\")\n",
-        "        return {}\n",
-        "\n",
-        "# Function to select timeframe\n",
-        "def select_timeframe():\n",
-        "    print(\"Choose the timeframe for analysis:\")\n",
-        "    print(\"1. 1 Day (1d)\")\n",
-        "    print(\"2. 5 Days (5d)\")\n",
-        "    print(\"3. 1 Month (1mo)\")\n",
-        "    print(\"4. 3 Months (3mo)\")\n",
-        "    print(\"5. 6 Months (6mo)\")\n",
-        "    print(\"6. Year-to-Date (ytd)\")\n",
-        "    print(\"7. 1 Year (1y)\")\n",
-        "    print(\"8. 2 Years (2y)\")\n",
-        "    print(\"9. 5 Years (5y)\")\n",
-        "    print(\"10. Custom Date Range\")\n",
-        "\n",
-        "    timeframe_choice = input(\"Enter your choice: \")\n",
-        "\n",
-        "    # Map user choice to Yahoo Finance period strings\n",
-        "    timeframe_map = {\n",
-        "        '1': '1d', '2': '5d', '3': '1mo', '4': '3mo',\n",
-        "        '5': '6mo', '6': 'ytd', '7': '1y', '8': '2y', '9': '5y'\n",
-        "    }\n",
-        "\n",
-        "    if timeframe_choice in timeframe_map:\n",
-        "        return timeframe_map[timeframe_choice]\n",
-        "    elif timeframe_choice == '10':\n",
-        "        # Custom date range\n",
-        "        start_date = input(\"Enter start date (YYYY-MM-DD): \")\n",
-        "        end_date = input(\"Enter end date (YYYY-MM-DD): \")\n",
-        "        try:\n",
-        "            datetime.strptime(start_date, '%Y-%m-%d')\n",
-        "            datetime.strptime(end_date, '%Y-%m-%d')\n",
-        "            return (start_date, end_date)\n",
-        "        except ValueError:\n",
-        "            print(\"Error: Invalid date format. Please use YYYY-MM-DD.\")\n",
-        "            return None\n",
-        "    else:\n",
-        "        print(\"Error: Invalid choice.\")\n",
-        "        return None\n",
-        "\n",
-        "# Function to analyze individual stock with Bollinger Bands and RSI\n",
-        "def analyze_stock(tickerSymbol, period=None, start_date=None, end_date=None):\n",
-        "    try:\n",
-        "        tickerData = yf.Ticker(tickerSymbol)\n",
-        "        if period:\n",
-        "            tickerDf = tickerData.history(period=period)\n",
-        "        elif start_date and end_date:\n",
-        "            tickerDf = tickerData.history(start=start_date, end=end_date)\n",
-        "        else:\n",
-        "            print(\"Error: No valid timeframe or date range selected.\")\n",
-        "            return None\n",
-        "\n",
-        "        if tickerDf.empty:\n",
-        "            print(f\"Error: No data available for ticker {tickerSymbol}.\")\n",
-        "            return None\n",
-        "\n",
-        "        # Calculate Bollinger Bands\n",
-        "        tickerDf['SMA'] = tickerDf['Close'].rolling(window=20).mean()\n",
-        "        tickerDf['SD'] = tickerDf['Close'].rolling(window=20).std()\n",
-        "        tickerDf['UB'] = tickerDf['SMA'] + 2 * tickerDf['SD']\n",
-        "        tickerDf['LB'] = tickerDf['SMA'] - 2 * tickerDf['SD']\n",
-        "\n",
-        "        # Calculate RSI\n",
-        "        delta = tickerDf['Close'].diff()\n",
-        "        gain = delta.clip(lower=0)\n",
-        "        loss = -delta.clip(upper=0)\n",
-        "        avg_gain = gain.rolling(window=14).mean()\n",
-        "        avg_loss = loss.rolling(window=14).mean()\n",
-        "        rs = avg_gain / avg_loss\n",
-        "        tickerDf['RSI'] = 100 - (100 / (1 + rs))\n",
-        "\n",
-        "        # Plot Bollinger Bands\n",
-        "        fig = go.Figure()\n",
-        "        fig.add_trace(go.Candlestick(\n",
-        "            x=tickerDf.index,\n",
-        "            open=tickerDf['Open'],\n",
-        "            high=tickerDf['High'],\n",
-        "            low=tickerDf['Low'],\n",
-        "            close=tickerDf['Close'],\n",
-        "            name='Candlestick'\n",
-        "        ))\n",
-        "        fig.add_trace(go.Scatter(\n",
-        "            x=tickerDf.index, y=tickerDf['UB'],\n",
-        "            line=dict(color='blue', width=1),\n",
-        "            name='Upper Band'\n",
-        "        ))\n",
-        "        fig.add_trace(go.Scatter(\n",
-        "            x=tickerDf.index, y=tickerDf['LB'],\n",
-        "            line=dict(color='blue', width=1),\n",
-        "            name='Lower Band',\n",
-        "            fill='tonexty', fillcolor='rgba(173, 216, 230, 0.2)'\n",
-        "        ))\n",
-        "        fig.add_trace(go.Scatter(\n",
-        "            x=tickerDf.index, y=tickerDf['SMA'],\n",
-        "            line=dict(color='red', width=1),\n",
-        "            name='SMA (20)'\n",
-        "        ))\n",
-        "        fig.update_layout(\n",
-        "            title=f'{tickerSymbol} Bollinger Bands',\n",
-        "            xaxis_title='Date',\n",
-        "            yaxis_title='Price',\n",
-        "            height=600\n",
-        "        )\n",
-        "        fig.show()\n",
-        "\n",
-        "        # Plot RSI\n",
-        "        rsi_fig = go.Figure()\n",
-        "        rsi_fig.add_trace(go.Scatter(\n",
-        "            x=tickerDf.index, y=tickerDf['RSI'],\n",
-        "            line=dict(color='purple', width=1.5),\n",
-        "            name='RSI'\n",
-        "        ))\n",
-        "        rsi_fig.add_hline(y=70, line=dict(color='red', dash='dot'), annotation_text='Overbought (70)')\n",
-        "        rsi_fig.add_hline(y=30, line=dict(color='green', dash='dot'), annotation_text='Oversold (30)')\n",
-        "        rsi_fig.update_layout(\n",
-        "            title=f'{tickerSymbol} RSI (14)',\n",
-        "            xaxis_title='Date',\n",
-        "            yaxis_title='RSI',\n",
-        "            height=400\n",
-        "        )\n",
-        "        rsi_fig.show()\n",
-        "\n",
-        "    except Exception as e:\n",
-        "        print(f\"Error analyzing {tickerSymbol}: {e}\")\n",
-        "\n",
-        "# Function to analyze sector-wide performance with combined RSI and Bollinger Bands verdict\n",
-        "def analyze_sector_combined(sector_name, stock_tickers, period=None, start_date=None, end_date=None):\n",
-        "    sector_data = pd.DataFrame()\n",
-        "\n",
-        "    for ticker in stock_tickers:\n",
-        "        print(f\"Fetching data for {ticker}...\")\n",
-        "        try:\n",
-        "            ticker_data = yf.Ticker(ticker)\n",
-        "            if period:\n",
-        "                data = ticker_data.history(period=period)\n",
-        "            elif start_date and end_date:\n",
-        "                data = ticker_data.history(start=start_date, end=end_date)\n",
-        "            else:\n",
-        "                print(\"Error: No valid timeframe or date range selected.\")\n",
-        "                return None\n",
-        "\n",
-        "            if not data.empty:\n",
-        "                sector_data[ticker] = data['Close']\n",
-        "            else:\n",
-        "                print(f\"Warning: No data available for {ticker}.\")\n",
-        "        except Exception as e:\n",
-        "            print(f\"Error fetching data for {ticker}: {e}\")\n",
-        "\n",
-        "    if sector_data.empty:\n",
-        "        print(f\"No data available for the sector {sector_name}.\")\n",
-        "        return\n",
-        "\n",
-        "    # Calculate sector average close price\n",
-        "    sector_data['Sector Average'] = sector_data.mean(axis=1)\n",
-        "\n",
-        "    # Calculate Bollinger Bands on sector average\n",
-        "    sector_data['SMA'] = sector_data['Sector Average'].rolling(window=20).mean()\n",
-        "    sector_data['SD'] = sector_data['Sector Average'].rolling(window=20).std()\n",
-        "    sector_data['UB'] = sector_data['SMA'] + 2 * sector_data['SD']\n",
-        "    sector_data['LB'] = sector_data['SMA'] - 2 * sector_data['SD']\n",
-        "\n",
-        "    # Calculate RSI on sector average\n",
-        "    delta = sector_data['Sector Average'].diff()\n",
-        "    gain = delta.clip(lower=0)\n",
-        "    loss = -delta.clip(upper=0)\n",
-        "    avg_gain = gain.rolling(window=14).mean()\n",
-        "    avg_loss = loss.rolling(window=14).mean()\n",
-        "    rs = avg_gain / avg_loss\n",
-        "    sector_data['RSI'] = 100 - (100 / (1 + rs))\n",
-        "\n",
-        "    # Plot combined Bollinger Bands\n",
-        "    fig = go.Figure()\n",
-        "    fig.add_trace(go.Candlestick(\n",
-        "        x=sector_data.index,\n",
-        "        open=sector_data['Sector Average'],\n",
-        "        high=sector_data['Sector Average'] + sector_data['SD'],\n",
-        "        low=sector_data['Sector Average'] - sector_data['SD'],\n",
-        "        close=sector_data['Sector Average'],\n",
-        "        name='Candlestick'\n",
-        "    ))\n",
-        "    fig.add_trace(go.Scatter(\n",
-        "        x=sector_data.index, y=sector_data['UB'],\n",
-        "        line=dict(color='blue', width=1),\n",
-        "        name='Upper Band'\n",
-        "    ))\n",
-        "    fig.add_trace(go.Scatter(\n",
-        "        x=sector_data.index, y=sector_data['LB'],\n",
-        "        line=dict(color='blue', width=1),\n",
-        "        name='Lower Band',\n",
-        "        fill='tonexty', fillcolor='rgba(173, 216, 230, 0.2)'\n",
-        "    ))\n",
-        "    fig.add_trace(go.Scatter(\n",
-        "        x=sector_data.index, y=sector_data['SMA'],\n",
-        "        line=dict(color='red', width=1),\n",
-        "        name='SMA (20)'\n",
-        "    ))\n",
-        "    fig.update_layout(\n",
-        "        title=f'{sector_name} Combined Bollinger Bands',\n",
-        "        xaxis_title='Date',\n",
-        "        yaxis_title='Price',\n",
-        "        xaxis_rangeslider_visible=False,\n",
-        "        height=600\n",
-        "    )\n",
-        "    fig.show()\n",
-        "\n",
-        "    # Plot RSI for the sector\n",
-        "    rsi_fig = go.Figure()\n",
-        "    rsi_fig.add_trace(go.Scatter(\n",
-        "        x=sector_data.index, y=sector_data['RSI'],\n",
-        "        line=dict(color='purple', width=1.5),\n",
-        "        name='RSI'\n",
-        "    ))\n",
-        "    rsi_fig.add_hline(y=70, line=dict(color='red', dash='dot'), annotation_text='Overbought (70)')\n",
-        "    rsi_fig.add_hline(y=30, line=dict(color='green', dash='dot'), annotation_text='Oversold (30)')\n",
-        "    rsi_fig.update_layout(\n",
-        "        title=f'{sector_name} Combined RSI (14)',\n",
-        "        xaxis_title='Date',\n",
-        "        yaxis_title='RSI',\n",
-        "        height=400\n",
-        "    )\n",
-        "    rsi_fig.show()\n",
-        "\n",
-        "    # Combined Verdict: RSI + Bollinger Bands\n",
-        "    latest_rsi = sector_data['RSI'].iloc[-1]\n",
-        "    latest_close = sector_data['Sector Average'].iloc[-1]\n",
-        "    upper_band = sector_data['UB'].iloc[-1]\n",
-        "    lower_band = sector_data['LB'].iloc[-1]\n",
-        "\n",
-        "    # Determine RSI verdict\n",
-        "    if latest_rsi > 70:\n",
-        "        rsi_verdict = \"Not Investable (Overbought)\"\n",
-        "    elif latest_rsi < 30:\n",
-        "        rsi_verdict = \"Investable (Oversold)\"\n",
-        "    else:\n",
-        "        rsi_verdict = \"Neutral\"\n",
-        "\n",
-        "    # Determine Bollinger Bands verdict\n",
-        "    if latest_close > upper_band:\n",
-        "        bb_verdict = \"Not Investable (Overbought)\"\n",
-        "    elif latest_close < lower_band:\n",
-        "        bb_verdict = \"Investable (Oversold)\"\n",
-        "    else:\n",
-        "        bb_verdict = \"Neutral\"\n",
-        "\n",
-        "    # Combine the verdicts\n",
-        "    if rsi_verdict == bb_verdict:\n",
-        "        final_verdict = rsi_verdict  # Both agree\n",
-        "    else:\n",
-        "        final_verdict = \"Neutral\"  # Conflict between RSI and Bollinger Bands\n",
-        "\n",
-        "    print(f\"Combined Verdict for {sector_name}: {final_verdict}\")\n",
-        "\n",
-        "\n",
-        "# Function to analyze individual stock with Bollinger Bands and RSI\n",
-        "def analyze_stock(tickerSymbol, period=None, start_date=None, end_date=None):\n",
-        "    try:\n",
-        "        tickerData = yf.Ticker(tickerSymbol)\n",
-        "        if period:\n",
-        "            tickerDf = tickerData.history(period=period)\n",
-        "        elif start_date and end_date:\n",
-        "            tickerDf = tickerData.history(start=start_date, end=end_date)\n",
-        "        else:\n",
-        "            print(\"Error: No valid timeframe or date range selected.\")\n",
-        "            return None\n",
-        "\n",
-        "        if tickerDf.empty:\n",
-        "            print(f\"Error: No data available for ticker {tickerSymbol}.\")\n",
-        "            return None\n",
-        "\n",
-        "        # Calculate Bollinger Bands\n",
-        "        tickerDf['SMA'] = tickerDf['Close'].rolling(window=20).mean()\n",
-        "        tickerDf['SD'] = tickerDf['Close'].rolling(window=20).std()\n",
-        "        tickerDf['UB'] = tickerDf['SMA'] + 2 * tickerDf['SD']\n",
-        "        tickerDf['LB'] = tickerDf['SMA'] - 2 * tickerDf['SD']\n",
-        "\n",
-        "        # Calculate RSI\n",
-        "        delta = tickerDf['Close'].diff()\n",
-        "        gain = delta.clip(lower=0)\n",
-        "        loss = -delta.clip(upper=0)\n",
-        "        avg_gain = gain.rolling(window=14).mean()\n",
-        "        avg_loss = loss.rolling(window=14).mean()\n",
-        "        rs = avg_gain / avg_loss\n",
-        "        tickerDf['RSI'] = 100 - (100 / (1 + rs))\n",
-        "\n",
-        "        # Plot Bollinger Bands\n",
-        "        fig = go.Figure()\n",
-        "        fig.add_trace(go.Candlestick(\n",
-        "            x=tickerDf.index,\n",
-        "            open=tickerDf['Open'],\n",
-        "            high=tickerDf['High'],\n",
-        "            low=tickerDf['Low'],\n",
-        "            close=tickerDf['Close'],\n",
-        "            name='Candlestick'\n",
-        "        ))\n",
-        "        fig.add_trace(go.Scatter(\n",
-        "            x=tickerDf.index, y=tickerDf['UB'],\n",
-        "            line=dict(color='blue', width=1),\n",
-        "            name='Upper Band'\n",
-        "        ))\n",
-        "        fig.add_trace(go.Scatter(\n",
-        "            x=tickerDf.index, y=tickerDf['LB'],\n",
-        "            line=dict(color='blue', width=1),\n",
-        "            name='Lower Band',\n",
-        "            fill='tonexty', fillcolor='rgba(173, 216, 230, 0.2)'\n",
-        "        ))\n",
-        "        fig.add_trace(go.Scatter(\n",
-        "            x=tickerDf.index, y=tickerDf['SMA'],\n",
-        "            line=dict(color='red', width=1),\n",
-        "            name='SMA (20)'\n",
-        "        ))\n",
-        "        fig.update_layout(\n",
-        "            title=f'{tickerSymbol} Bollinger Bands',\n",
-        "            xaxis_title='Date',\n",
-        "            yaxis_title='Price',\n",
-        "            height=600\n",
-        "        )\n",
-        "        fig.show()\n",
-        "\n",
-        "        # Plot RSI\n",
-        "        rsi_fig = go.Figure()\n",
-        "        rsi_fig.add_trace(go.Scatter(\n",
-        "            x=tickerDf.index, y=tickerDf['RSI'],\n",
-        "            line=dict(color='purple', width=1.5),\n",
-        "            name='RSI'\n",
-        "        ))\n",
-        "        rsi_fig.add_hline(y=70, line=dict(color='red', dash='dot'), annotation_text='Overbought (70)')\n",
-        "        rsi_fig.add_hline(y=30, line=dict(color='green', dash='dot'), annotation_text='Oversold (30)')\n",
-        "        rsi_fig.update_layout(\n",
-        "            title=f'{tickerSymbol} RSI (14)',\n",
-        "            xaxis_title='Date',\n",
-        "            yaxis_title='RSI',\n",
-        "            height=400\n",
-        "        )\n",
-        "        rsi_fig.show()\n",
-        "\n",
-        "    except Exception as e:\n",
-        "        print(f\"Error analyzing {tickerSymbol}: {e}\")\n",
-        "\n",
-        "# Main function to drive the analysis\n",
-        "def main():\n",
-        "    sector_stocks = load_sector_data()\n",
-        "\n",
-        "    if not sector_stocks:\n",
-        "        print(\"Error: Could not load sector data.\")\n",
-        "        return\n",
-        "\n",
-        "    print(\"Available Sectors:\")\n",
-        "    for i, sector in enumerate(sector_stocks.keys(), start=1):\n",
-        "        print(f\"{i}. {sector}\")\n",
-        "\n",
-        "    sector_choice = input(\"Select a sector by entering the number: \")\n",
-        "    try:\n",
-        "        sector_choice = int(sector_choice)\n",
-        "        sector_name = list(sector_stocks.keys())[sector_choice - 1]\n",
-        "        stock_tickers = sector_stocks[sector_name]\n",
-        "\n",
-        "        print(f\"Selected Sector: {sector_name}\")\n",
-        "        timeframe = select_timeframe()\n",
-        "\n",
-        "        if isinstance(timeframe, tuple):  # Custom date range\n",
-        "            start_date, end_date = timeframe\n",
-        "            analyze_sector_combined(sector_name, stock_tickers, start_date=start_date, end_date=end_date)\n",
-        "        else:\n",
-        "            analyze_sector_combined(sector_name, stock_tickers, period=timeframe)\n",
-        "\n",
-        "        # Display available companies in the selected sector\n",
-        "        print(\"\\nAvailable Companies in Selected Sector:\")\n",
-        "        for ticker in stock_tickers:\n",
-        "            print(f\"- {ticker}\")\n",
-        "\n",
-        "        # Option for individual stock analysis\n",
-        "        print(\"\\nIndividual Stock Analysis:\")\n",
-        "        selected_stock = input(\"Enter the stock ticker symbol (e.g., AAPL, TSLA): \")\n",
-        "        print(f\"Selected Stock: {selected_stock}\")\n",
-        "\n",
-        "        if isinstance(timeframe, tuple):  # Custom date range\n",
-        "            analyze_stock(selected_stock, start_date=start_date, end_date=end_date)\n",
-        "        else:\n",
-        "            analyze_stock(selected_stock, period=timeframe)\n",
-        "    except Exception as e:\n",
-        "        print(\"Error: Invalid sector choice.\")\n",
-        "\n",
-        "\n",
-        "        # Display available companies in the selected sector\n",
-        "        print(\"\\nAvailable Companies in the Selected Sector:\")\n",
-        "        for ticker in stock_tickers:\n",
-        "            print(f\"- {ticker}\")\n",
-        "\n",
-        "        # Option for individual stock analysis\n",
-        "        print(\"\\nIndividual Stock Analysis:\")\n",
-        "        selected_stock = input(\"Enter the stock ticker symbol (e.g., AAPL, TSLA): \")\n",
-        "        print(f\"Selected Stock: {selected_stock}\")\n",
-        "\n",
-        "        if isinstance(timeframe, tuple):  # Custom date range\n",
-        "            analyze_stock(selected_stock, start_date=start_date, end_date=end_date)\n",
-        "        else:\n",
-        "            analyze_stock(selected_stock, period=timeframe)\n",
-        "    except Exception as e:\n",
-        "        print(\"Error: Invalid sector choice.\")\n",
-        "\n",
-        "\n",
-        "        # Option for individual stock analysis\n",
-        "        print(\"\\nIndividual Stock Analysis:\")\n",
-        "        selected_stock = input(\"Enter the stock ticker symbol (e.g., AAPL, TSLA): \")\n",
-        "        print(f\"Selected Stock: {selected_stock}\")\n",
-        "\n",
-        "        if isinstance(timeframe, tuple):  # Custom date range\n",
-        "            analyze_stock(selected_stock, start_date=start_date, end_date=end_date)\n",
-        "        else:\n",
-        "            analyze_stock(selected_stock, period=timeframe)\n",
-        "    except Exception as e:\n",
-        "        print(\"Error: Invalid sector choice.\")\n",
-        "\n",
-        "# Run the program\n",
-        "if __name__ == \"__main__\":\n",
-        "    main()\n"
-      ]
-    }
-  ]
-}
+
+    if timeframe_choice in timeframe_map:
+        return timeframe_map[timeframe_choice]
+    elif timeframe_choice == '10':
+        # Custom date range
+        start_date = input("Enter start date (YYYY-MM-DD): ")
+        end_date = input("Enter end date (YYYY-MM-DD): ")
+        try:
+            datetime.strptime(start_date, '%Y-%m-%d')
+            datetime.strptime(end_date, '%Y-%m-%d')
+            return (start_date, end_date)
+        except ValueError:
+            print("Error: Invalid date format. Please use YYYY-MM-DD.")
+            return None
+    else:
+        print("Error: Invalid choice.")
+        return None
+
+# Function to analyze individual stock with Bollinger Bands and RSI
+def analyze_stock(tickerSymbol, period=None, start_date=None, end_date=None):
+    try:
+        tickerData = yf.Ticker(tickerSymbol)
+        if period:
+            tickerDf = tickerData.history(period=period)
+        elif start_date and end_date:
+            tickerDf = tickerData.history(start=start_date, end=end_date)
+        else:
+            print("Error: No valid timeframe or date range selected.")
+            return None
+
+        if tickerDf.empty:
+            print(f"Error: No data available for ticker {tickerSymbol}.")
+            return None
+
+        # Calculate Bollinger Bands
+        tickerDf['SMA'] = tickerDf['Close'].rolling(window=20).mean()
+        tickerDf['SD'] = tickerDf['Close'].rolling(window=20).std()
+        tickerDf['UB'] = tickerDf['SMA'] + 2 * tickerDf['SD']
+        tickerDf['LB'] = tickerDf['SMA'] - 2 * tickerDf['SD']
+
+        # Calculate RSI
+        delta = tickerDf['Close'].diff()
+        gain = delta.clip(lower=0)
+        loss = -delta.clip(upper=0)
+        avg_gain = gain.rolling(window=14).mean()
+        avg_loss = loss.rolling(window=14).mean()
+        rs = avg_gain / avg_loss
+        tickerDf['RSI'] = 100 - (100 / (1 + rs))
+
+        # Plot Bollinger Bands
+        fig = go.Figure()
+        fig.add_trace(go.Candlestick(
+            x=tickerDf.index,
+            open=tickerDf['Open'],
+            high=tickerDf['High'],
+            low=tickerDf['Low'],
+            close=tickerDf['Close'],
+            name='Candlestick'
+        ))
+        fig.add_trace(go.Scatter(
+            x=tickerDf.index, y=tickerDf['UB'],
+            line=dict(color='blue', width=1),
+            name='Upper Band'
+        ))
+        fig.add_trace(go.Scatter(
+            x=tickerDf.index, y=tickerDf['LB'],
+            line=dict(color='blue', width=1),
+            name='Lower Band',
+            fill='tonexty', fillcolor='rgba(173, 216, 230, 0.2)'
+        ))
+        fig.add_trace(go.Scatter(
+            x=tickerDf.index, y=tickerDf['SMA'],
+            line=dict(color='red', width=1),
+            name='SMA (20)'
+        ))
+        fig.update_layout(
+            title=f'{tickerSymbol} Bollinger Bands',
+            xaxis_title='Date',
+            yaxis_title='Price',
+            height=600
+        )
+        fig.show()
+
+        # Plot RSI
+        rsi_fig = go.Figure()
+        rsi_fig.add_trace(go.Scatter(
+            x=tickerDf.index, y=tickerDf['RSI'],
+            line=dict(color='purple', width=1.5),
+            name='RSI'
+        ))
+        rsi_fig.add_hline(y=70, line=dict(color='red', dash='dot'), annotation_text='Overbought (70)')
+        rsi_fig.add_hline(y=30, line=dict(color='green', dash='dot'), annotation_text='Oversold (30)')
+        rsi_fig.update_layout(
+            title=f'{tickerSymbol} RSI (14)',
+            xaxis_title='Date',
+            yaxis_title='RSI',
+            height=400
+        )
+        rsi_fig.show()
+
+    except Exception as e:
+        print(f"Error analyzing {tickerSymbol}: {e}")
+
+# Function to analyze sector-wide performance with combined RSI and Bollinger Bands verdict
+def analyze_sector_combined(sector_name, stock_tickers, period=None, start_date=None, end_date=None):
+    sector_data = pd.DataFrame()
+
+    for ticker in stock_tickers:
+        print(f"Fetching data for {ticker}...")
+        try:
+            ticker_data = yf.Ticker(ticker)
+            if period:
+                data = ticker_data.history(period=period)
+            elif start_date and end_date:
+                data = ticker_data.history(start=start_date, end=end_date)
+            else:
+                print("Error: No valid timeframe or date range selected.")
+                return None
+
+            if not data.empty:
+                sector_data[ticker] = data['Close']
+            else:
+                print(f"Warning: No data available for {ticker}.")
+        except Exception as e:
+            print(f"Error fetching data for {ticker}: {e}")
+
+    if sector_data.empty:
+        print(f"No data available for the sector {sector_name}.")
+        return
+
+    # Calculate sector average close price
+    sector_data['Sector Average'] = sector_data.mean(axis=1)
+
+    # Calculate Bollinger Bands on sector average
+    sector_data['SMA'] = sector_data['Sector Average'].rolling(window=20).mean()
+    sector_data['SD'] = sector_data['Sector Average'].rolling(window=20).std()
+    sector_data['UB'] = sector_data['SMA'] + 2 * sector_data['SD']
+    sector_data['LB'] = sector_data['SMA'] - 2 * sector_data['SD']
+
+    # Calculate RSI on sector average
+    delta = sector_data['Sector Average'].diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+    avg_gain = gain.rolling(window=14).mean()
+    avg_loss = loss.rolling(window=14).mean()
+    rs = avg_gain / avg_loss
+    sector_data['RSI'] = 100 - (100 / (1 + rs))
+
+    # Plot combined Bollinger Bands
+    fig = go.Figure()
+    fig.add_trace(go.Candlestick(
+        x=sector_data.index,
+        open=sector_data['Sector Average'], 
+        high=sector_data['Sector Average'] + sector_data['SD'],  
+        low=sector_data['Sector Average'] - sector_data['SD'],  
+        close=sector_data['Sector Average'],  
+        name='Candlestick'
+    ))
+    fig.add_trace(go.Scatter(
+        x=sector_data.index, y=sector_data['UB'],
+        line=dict(color='blue', width=1),
+        name='Upper Band'
+    ))
+    fig.add_trace(go.Scatter(
+        x=sector_data.index, y=sector_data['LB'],
+        line=dict(color='blue', width=1),
+        name='Lower Band',
+        fill='tonexty', fillcolor='rgba(173, 216, 230, 0.2)'
+    ))
+    fig.add_trace(go.Scatter(
+        x=sector_data.index, y=sector_data['SMA'],
+        line=dict(color='red', width=1),
+        name='SMA (20)'
+    ))
+    fig.update_layout(
+        title=f'{sector_name} Combined Bollinger Bands',
+        xaxis_title='Date',
+        yaxis_title='Price',
+        xaxis_rangeslider_visible=False,
+        height=600
+    )
+    fig.show()
+
+    # Plot RSI for the sector
+    rsi_fig = go.Figure()
+    rsi_fig.add_trace(go.Scatter(
+        x=sector_data.index, y=sector_data['RSI'],
+        line=dict(color='purple', width=1.5),
+        name='RSI'
+    ))
+    rsi_fig.add_hline(y=70, line=dict(color='red', dash='dot'), annotation_text='Overbought (70)')
+    rsi_fig.add_hline(y=30, line=dict(color='green', dash='dot'), annotation_text='Oversold (30)')
+    rsi_fig.update_layout(
+        title=f'{sector_name} Combined RSI (14)',
+        xaxis_title='Date',
+        yaxis_title='RSI',
+        height=400
+    )
+    rsi_fig.show()
+
+    # Combined Verdict: RSI + Bollinger Bands
+    latest_rsi = sector_data['RSI'].iloc[-1]
+    latest_close = sector_data['Sector Average'].iloc[-1]
+    upper_band = sector_data['UB'].iloc[-1]
+    lower_band = sector_data['LB'].iloc[-1]
+
+    # Determine RSI verdict
+    if latest_rsi > 70:
+        rsi_verdict = "Not Investable (Overbought)"
+    elif latest_rsi < 30:
+        rsi_verdict = "Investable (Oversold)"
+    else:
+        rsi_verdict = "Neutral"
+
+    # Determine Bollinger Bands verdict
+    if latest_close > upper_band:
+        bb_verdict = "Not Investable (Overbought)"
+    elif latest_close < lower_band:
+        bb_verdict = "Investable (Oversold)"
+    else:
+        bb_verdict = "Neutral"
+
+    # Combine the verdicts
+    if rsi_verdict == bb_verdict:
+        final_verdict = rsi_verdict  # Both agree
+    else:
+        final_verdict = "Neutral"  # Conflict between RSI and Bollinger Bands
+
+    print(f"Combined Verdict for {sector_name}: {final_verdict}")
+
+
+# Function to analyze individual stock with Bollinger Bands and RSI
+def analyze_stock(tickerSymbol, period=None, start_date=None, end_date=None):
+    try:
+        tickerData = yf.Ticker(tickerSymbol)
+        if period:
+            tickerDf = tickerData.history(period=period)
+        elif start_date and end_date:
+            tickerDf = tickerData.history(start=start_date, end=end_date)
+        else:
+            print("Error: No valid timeframe or date range selected.")
+            return None
+
+        if tickerDf.empty:
+            print(f"Error: No data available for ticker {tickerSymbol}.")
+            return None
+
+        # Calculate Bollinger Bands
+        tickerDf['SMA'] = tickerDf['Close'].rolling(window=20).mean()
+        tickerDf['SD'] = tickerDf['Close'].rolling(window=20).std()
+        tickerDf['UB'] = tickerDf['SMA'] + 2 * tickerDf['SD']
+        tickerDf['LB'] = tickerDf['SMA'] - 2 * tickerDf['SD']
+
+        # Calculate RSI
+        delta = tickerDf['Close'].diff()
+        gain = delta.clip(lower=0)
+        loss = -delta.clip(upper=0)
+        avg_gain = gain.rolling(window=14).mean()
+        avg_loss = loss.rolling(window=14).mean()
+        rs = avg_gain / avg_loss
+        tickerDf['RSI'] = 100 - (100 / (1 + rs))
+
+        # Plot Bollinger Bands
+        fig = go.Figure()
+        fig.add_trace(go.Candlestick(
+            x=tickerDf.index,
+            open=tickerDf['Open'],
+            high=tickerDf['High'],
+            low=tickerDf['Low'],
+            close=tickerDf['Close'],
+            name='Candlestick'
+        ))
+        fig.add_trace(go.Scatter(
+            x=tickerDf.index, y=tickerDf['UB'],
+            line=dict(color='blue', width=1),
+            name='Upper Band'
+        ))
+        fig.add_trace(go.Scatter(
+            x=tickerDf.index, y=tickerDf['LB'],
+            line=dict(color='blue', width=1),
+            name='Lower Band',
+            fill='tonexty', fillcolor='rgba(173, 216, 230, 0.2)'
+        ))
+        fig.add_trace(go.Scatter(
+            x=tickerDf.index, y=tickerDf['SMA'],
+            line=dict(color='red', width=1),
+            name='SMA (20)'
+        ))
+        fig.update_layout(
+            title=f'{tickerSymbol} Bollinger Bands',
+            xaxis_title='Date',
+            yaxis_title='Price',
+            height=600
+        )
+        fig.show()
+
+        # Plot RSI
+        rsi_fig = go.Figure()
+        rsi_fig.add_trace(go.Scatter(
+            x=tickerDf.index, y=tickerDf['RSI'],
+            line=dict(color='purple', width=1.5),
+            name='RSI'
+        ))
+        rsi_fig.add_hline(y=70, line=dict(color='red', dash='dot'), annotation_text='Overbought (70)')
+        rsi_fig.add_hline(y=30, line=dict(color='green', dash='dot'), annotation_text='Oversold (30)')
+        rsi_fig.update_layout(
+            title=f'{tickerSymbol} RSI (14)',
+            xaxis_title='Date',
+            yaxis_title='RSI',
+            height=400
+        )
+        rsi_fig.show()
+
+    except Exception as e:
+        print(f"Error analyzing {tickerSymbol}: {e}")
+
+# Main function to drive the analysis
+def main():
+    sector_stocks = load_sector_data()
+
+    if not sector_stocks:
+        print("Error: Could not load sector data.")
+        return
+
+    print("Available Sectors:")
+    for i, sector in enumerate(sector_stocks.keys(), start=1):
+        print(f"{i}. {sector}")
+
+    sector_choice = input("Select a sector by entering the number: ")
+    try:
+        sector_choice = int(sector_choice)
+        sector_name = list(sector_stocks.keys())[sector_choice - 1]
+        stock_tickers = sector_stocks[sector_name]
+
+        print(f"Selected Sector: {sector_name}")
+        timeframe = select_timeframe()
+
+        if isinstance(timeframe, tuple):  # Custom date range
+            start_date, end_date = timeframe
+            analyze_sector_combined(sector_name, stock_tickers, start_date=start_date, end_date=end_date)
+        else:
+            analyze_sector_combined(sector_name, stock_tickers, period=timeframe)
+
+        # Display available companies in the selected sector
+        print("\nAvailable Companies in Selected Sector:")
+        for ticker in stock_tickers:
+            print(f"- {ticker}")
+
+        # Option for individual stock analysis
+        print("\nIndividual Stock Analysis:")
+        selected_stock = input("Enter the stock ticker symbol (e.g., AAPL, TSLA): ")
+        print(f"Selected Stock: {selected_stock}")
+
+        if isinstance(timeframe, tuple):  # Custom date range
+            analyze_stock(selected_stock, start_date=start_date, end_date=end_date)
+        else:
+            analyze_stock(selected_stock, period=timeframe)
+    except Exception as e:
+        print("Error: Invalid sector choice.")
+
+
+        # Display available companies in the selected sector
+        print("\nAvailable Companies in the Selected Sector:")
+        for ticker in stock_tickers:
+            print(f"- {ticker}")
+
+        # Option for individual stock analysis
+        print("\nIndividual Stock Analysis:")
+        selected_stock = input("Enter the stock ticker symbol (e.g., AAPL, TSLA): ")
+        print(f"Selected Stock: {selected_stock}")
+
+        if isinstance(timeframe, tuple):  # Custom date range
+            analyze_stock(selected_stock, start_date=start_date, end_date=end_date)
+        else:
+            analyze_stock(selected_stock, period=timeframe)
+    except Exception as e:
+        print("Error: Invalid sector choice.")
+
+
+        # Option for individual stock analysis
+        print("\nIndividual Stock Analysis:")
+        selected_stock = input("Enter the stock ticker symbol (e.g., AAPL, TSLA): ")
+        print(f"Selected Stock: {selected_stock}")
+
+        if isinstance(timeframe, tuple):  # Custom date range
+            analyze_stock(selected_stock, start_date=start_date, end_date=end_date)
+        else:
+            analyze_stock(selected_stock, period=timeframe)
+    except Exception as e:
+        print("Error: Invalid sector choice.")
+
+# Run the program
+if __name__ == "__main__":
+    main()
